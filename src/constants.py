@@ -1,0 +1,16 @@
+# Window dimensions
+SCREEN_WIDTH = 1200
+SCREEN_HEIGHT = 800
+
+# Colors
+GREEN = (88, 129, 87)
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+DARK_GREEN = (52, 78, 65)
+BROWN = (111, 40, 12)
+
+# Card Dimensions
+CARD_WIDTH = 100
+CARD_HEIGHT = 140
+CARD_SPACING = 25
+
