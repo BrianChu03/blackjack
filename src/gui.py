@@ -1,6 +1,7 @@
 import pygame
 from pygame.locals import *
 import constants as c
+from gamelogic import *
 
 class Button:
     def __init__(self, x, y, width, height, text, action=None, font_size=36):
@@ -36,7 +37,7 @@ class GUI:
         # Create three options for start menu
         start_button = Button(start_x, start_y, c.MUTTON_WIDTH, c.MUTTON_HEIGHT,
                               "Start Game", self.game.start_game)
-        instruct_button = Button(start_x start_y + c.MUTTON_HEIGHT + c. MUTTON_PADDING,
+        instruct_button = Button(start_x, start_y + c.MUTTON_HEIGHT + c. MUTTON_PADDING,
                                 c.MUTTON_WIDTH, c.MUTTON_HEIGHT, "Instructions",
                                 self.game.instructions)
         exit_button = Button(start_x, start_y + 2 * (c.MUTTON_HEIGHT + c.MUTTON_PADDING),
