@@ -1,6 +1,6 @@
 import pygame, sys
 from pygame.locals import *
-import constants as c
+import guiconstants as c
 
 pygame.init()
 screen = pygame.display.set_mode((c.SCREEN_WIDTH, c.SCREEN_HEIGHT))
