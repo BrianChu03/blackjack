@@ -1,6 +1,6 @@
 import pygame
 import sys
-import constants as c
+import guiconstants as c
 from gui import GUI
 from deck import load_card_image
 
@@ -19,6 +19,8 @@ class GameState:
         # Create the GUI, passing the screen and this game instance
         self.gui = GUI(self.screen, self)
         self.gui.create_menu_buttons() # Create buttons upon initialization
+
+
 
     def start_game(self):
         """Action for the 'Start Game' button."""
