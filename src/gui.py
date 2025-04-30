@@ -1,6 +1,6 @@
 import pygame
 from pygame.locals import *
-import constants as c
+import guiconstants as c
 from gamelogic import *
 
 class Button:
