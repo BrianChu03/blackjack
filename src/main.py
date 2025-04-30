@@ -1,5 +1,7 @@
 import pygame, sys
 from pygame.locals import *
+import gui as ui
+import gamelogic as game
 import guiconstants as c
 
 pygame.init()
@@ -14,6 +16,11 @@ while running:
         if event.type == QUIT:
             running = False
         # gui.py handles other inputs
+
+    game_state = game.BlackjackGame()
+
+    display = ui.GUI(screen, game_state)
+    display.render()
 
     # Game reset
     pygame.display.flip()

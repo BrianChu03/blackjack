@@ -1,7 +1,6 @@
 import pygame
 from pygame.locals import *
 import guiconstants as c
-from gamelogic import *
 
 class Button:
     def __init__(self, x, y, width, height, text, action=None, font_size=36):
@@ -36,12 +35,12 @@ class GUI:
         
         # Create three options for start menu
         start_button = Button(start_x, start_y, c.MUTTON_WIDTH, c.MUTTON_HEIGHT,
-                              "Start Game", self.game.start_game)
+                              "Start Game", self.GUI.game_settings)
         instruct_button = Button(start_x, start_y + c.MUTTON_HEIGHT + c. MUTTON_PADDING,
                                 c.MUTTON_WIDTH, c.MUTTON_HEIGHT, "Instructions",
-                                self.game.instructions)
+                                self.GUI.instructions)
         exit_button = Button(start_x, start_y + 2 * (c.MUTTON_HEIGHT + c.MUTTON_PADDING),
-                                c.MUTTON_WIDTH, c.MUTTON_HEIGHT, "Exit", self.game.exit_game)
+                                c.MUTTON_WIDTH, c.MUTTON_HEIGHT, "Exit", self.GUI.exit_game)
         
         # Add buttons to list so they can be rendered
         self.buttons.extend([start_button, instruct_button, exit_button])
@@ -50,9 +49,11 @@ class GUI:
     def render(self):
         self.screen.fill(c.GREEN)
 
+        self.buttons.append(self.create_menu_buttons)
+
         # Draw menu buttons first
         for button in self.buttons:
-            button.draw(self.screen)
+            button.show(self.screen)
 
         pygame.display.flip()
 
@@ -63,5 +64,18 @@ class GUI:
                 if button.is_clicked(pos):
                     if button.action:
                         button.action()
+
+    def game_settings(self):
+        print("Game Settings button pressed!")
+
+        
+    def instructions(self):
+        print("Instructions button pressed!")
+
+    def exit_game(self):
+        print("Exit button pressed!")
+        pygame.quit()
+        exit()
+
 
     

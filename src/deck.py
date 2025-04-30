@@ -1,6 +1,6 @@
 import pygame
 import os 
-from constants import CARD_WIDTH, CARD_HEIGHT
+from guiconstants import CARD_WIDTH, CARD_HEIGHT
 
 #load the card assets
 def load_card_image():
@@ -8,7 +8,7 @@ def load_card_image():
     card_images = {}
     
     #designate the path to the folder that has the card images
-    image_folder = os.path.join("src", "images")
+    image_folder = os.path.join("assets", "cards")
 
     #iterate through all files in the folder
     for filename in os.listdir(image_folder):
