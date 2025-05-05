@@ -35,12 +35,12 @@ class GUI:
         
         # Create three options for start menu
         start_button = Button(start_x, start_y, c.MUTTON_WIDTH, c.MUTTON_HEIGHT,
-                              "Start Game", self.GUI.game_settings)
+                              "Start Game", self.game_settings)
         instruct_button = Button(start_x, start_y + c.MUTTON_HEIGHT + c. MUTTON_PADDING,
                                 c.MUTTON_WIDTH, c.MUTTON_HEIGHT, "Instructions",
-                                self.GUI.instructions)
+                                self.instructions)
         exit_button = Button(start_x, start_y + 2 * (c.MUTTON_HEIGHT + c.MUTTON_PADDING),
-                                c.MUTTON_WIDTH, c.MUTTON_HEIGHT, "Exit", self.GUI.exit_game)
+                                c.MUTTON_WIDTH, c.MUTTON_HEIGHT, "Exit", self.exit_game)
         
         # Add buttons to list so they can be rendered
         self.buttons.extend([start_button, instruct_button, exit_button])
@@ -49,11 +49,11 @@ class GUI:
     def render(self):
         self.screen.fill(c.GREEN)
 
-        self.buttons.append(self.create_menu_buttons)
+        self.create_menu_buttons()
 
         # Draw menu buttons first
         for button in self.buttons:
-            button.show(self.screen)
+            button.draw(self.screen)
 
         pygame.display.flip()
 
