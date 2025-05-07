@@ -134,6 +134,10 @@ class GUI:
         self.reset_game_gs_button = Button(0, 0, c.UTIL_BUTTON_WIDTH, c.UTIL_BUTTON_HEIGHT, 
                                          "Reset Game", self.reset_game_and_show_settings, 
                                          font_size=c.UTIL_BUTTON_FONT_SIZE)
+        
+        self.final_game_over_to_menu_button = Button(0, 0, c.MUTTON_WIDTH, c.MUTTON_HEIGHT,
+                                                    "Main Menu", self.setup_menu_screen,
+                                                    font_size=c.MUTTON_FONT_SIZE)
 
         # Default is menu screen
         self.setup_menu_screen()
@@ -142,6 +146,15 @@ class GUI:
     def setup_menu_screen(self):
         self.current_screen = 'menu'
         self.buttons.clear()
+
+        # Explicitly reset button positions to their original layout
+        start_x = (c.SCREEN_WIDTH - c.MUTTON_WIDTH) // 2
+        start_y = (c.SCREEN_HEIGHT - c.MUTTON_HEIGHT) // 2
+        # there was a bug where the instruction button was not aligned properly, so i'm just gonna reset them all to the correct position everytime
+        self.start_button.rect.topleft = (start_x, start_y)
+        self.instruct_button.rect.topleft = (start_x, start_y + c.MUTTON_HEIGHT + c.MUTTON_PADDING)
+        self.exit_button.rect.topleft = (start_x, start_y + 2 * (c.MUTTON_HEIGHT + c.MUTTON_PADDING))
+
         self.buttons.extend([self.start_button, self.instruct_button, self.exit_button])
 
     # ----- Game Settings Methods ----- #
@@ -230,13 +243,26 @@ class GUI:
 
     def start_new_round(self):
         print("Starting new round...")
-        # player chips persist between rounds
-        if self.game.players and self.game.players[0].chips < c.MIN_BET:
-            self.game.message = f"Player 1 has insufficient chips (Min Bet: ${c.MIN_BET}). Game Over."
-            self.current_screen = 'menu'
-            self.setup_menu_screen()
-            print(self.game.message)
+         
+        # existing “game over” checks…
+        player_unable_to_bet = None
+        if self.game.players:
+            for player in self.game.players:
+                if player.chips < c.MIN_BET:
+                    player_unable_to_bet = player 
+                    break
+        elif not self.game.players:
+            self.game.message = "No players configured. Game Over."
+            self.current_screen = 'game_over_final'
+            self.update_game_buttons()
             return
+
+        if player_unable_to_bet:
+            self.game.message = f"{player_unable_to_bet.name} has insufficient chips (Min Bet: ${c.MIN_BET}). Game Over."
+            self.current_screen = 'game_over_final'
+            self.update_game_buttons()
+            return
+        
         self._setup_betting_phase()
 
     # method to reset game completely (and take back user to settings screen)
@@ -384,6 +410,15 @@ class GUI:
             self.new_round_button.rect.centerx = c.SCREEN_WIDTH // 2
             self.new_round_button.rect.centery = c.NEW_ROUND_BUTTON_Y
             self.buttons.append(self.new_round_button)
+        elif self.current_screen == 'game_over_final':
+            # position for main_menu and exit button
+            self.final_game_over_to_menu_button.rect.centerx = c.SCREEN_WIDTH // 2
+            self.final_game_over_to_menu_button.rect.centery = c.FINAL_GAME_OVER_BUTTON_Y
+
+            self.exit_button.rect.centerx = c.SCREEN_WIDTH // 2
+            self.exit_button.rect.top = self.final_game_over_to_menu_button.rect.bottom + c.MUTTON_PADDING
+
+            self.buttons.extend([self.final_game_over_to_menu_button, self.exit_button])
 
     # ----- Deal Screen Methods ----- #
     def draw_hand(self, surface, hand_obj, x_center, y_center):
@@ -448,11 +483,15 @@ class GUI:
             # Create instructions text
             instructions_text = [
                 "How to Play:",
-                "1. The goal is to get as close to 21 as possible without going over.",
-                "2. Each player is dealt two cards, and the dealer has one card face up and one face down.",
-                "3. Players can choose to 'hit' (take another card) or 'stand' (keep their current hand).",
-                "3,5. If the first two cards are the same rank, the player can choose to split them into two separate hands.",
-                "4. If the player goes over 21, they lose."
+                "1. Place your bet with – / +, then press 'Deal'.",
+                "2. Try to finish closer to 21 than the dealer without busting.",
+                "3. On your turn choose: Hit (take a card), Stand (end turn),",
+                "   Double (double bet & take one card), or Split (if first two",
+                "   cards share a rank).",
+                "4. Dealer reveals the hidden card and must hit until 17 or more.",
+                "5. Blackjack (Ace + 10 value) pays 3:2; other wins pay 1:1; pushes",
+                "   return your bet.",
+                "6. Tap 'New Round' to play again, or 'Main Menu' to exit.",
             ]
             instruction_text_font = pygame.font.SysFont(None, c.FONT_SIZE_INSTRUCTION_LINES)
             for i, line in enumerate(instructions_text):
@@ -598,7 +637,17 @@ class GUI:
                             self.screen.blit(player_score_surf, player_score_rect)
                 elif not current_player_for_display and self.game.players: 
                     # This block was for potentially showing all hands if no current player, can be refined or removed if not desired
-                    pass 
+                    pass
+        elif self.current_screen == 'game_over_final':
+            # display game over message
+            if self.game.message:
+                message_surf = self.font.render(self.game.message, True, c.WHITE)
+                message_rect = message_surf.get_rect(center=(c.SCREEN_WIDTH // 2, c.SCREEN_HEIGHT // 2 - 50))
+                self.screen.blit(message_surf, message_rect)
+
+            title_surf = pygame.font.SysFont(None, c.FONT_SIZE_TITLE_SCREENS).render("GAME OVER", True, c.WHITE)
+            title_rect = title_surf.get_rect(center=(c.SCREEN_WIDTH // 2, c.SCREEN_HEIGHT // 2 - 120))
+            self.screen.blit(title_surf, title_rect)
 
         for button in self.buttons:
             button.draw(self.screen)
