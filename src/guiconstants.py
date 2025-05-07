@@ -1,3 +1,5 @@
+import os, sys
+
 # Window dimensions
 SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 800
@@ -42,10 +44,17 @@ INSTRUCTIONS_TITLE_Y_POS = 100 # Initial Y for instructions title, might be adju
 INSTRUCTIONS_TEXT_Y_START = 200
 INSTRUCTIONS_TEXT_LINE_SPACING = 40
 
+# I have to do this because it throws a fit when I try to execute main from src instead of the root folder
+# This is a workaround to get the base directory of the assets folder
+if getattr(sys, 'frozen', False):
+    BASE_DIR = sys._MEIPASS
+else:
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+
 # Game Screen HUD (Chips, Bet Buttons, Reset, Return to Menu)
 HUD_CHIP_COUNT_X = 100 # X position for chip count text
 HUD_CHIP_COUNT_Y = SCREEN_HEIGHT - 50 
-HUD_CHIP_IMAGE_PATH = "assets/pokerstack.png"
+HUD_CHIP_IMAGE_PATH = os.path.join(BASE_DIR, 'assets', 'pokerstack.png')
 HUD_CHIP_IMAGE_SIZE = (40, 40)
 HUD_CHIP_IMAGE_X = HUD_CHIP_COUNT_X - 50
 HUD_CHIP_IMAGE_Y = HUD_CHIP_COUNT_Y
@@ -84,7 +93,7 @@ PLAYER_HAND_TEXT_Y = SCREEN_HEIGHT // 2
 DEALER_HAND_TEXT_X = SCREEN_WIDTH // 2
 DEALER_HAND_TEXT_Y = SCREEN_HEIGHT // 2 - 100
 
-CARD_IMAGE_FOLDER = "assets/cards"
+CARD_IMAGES_FOLDER = os.path.join(BASE_DIR, 'assets', 'card_images')
 
 # Card Dimensions
 CARD_WIDTH = 100
