@@ -93,7 +93,7 @@ PLAYER_HAND_TEXT_Y = SCREEN_HEIGHT // 2
 DEALER_HAND_TEXT_X = SCREEN_WIDTH // 2
 DEALER_HAND_TEXT_Y = SCREEN_HEIGHT // 2 - 100
 
-CARD_IMAGES_FOLDER = os.path.join(BASE_DIR, 'assets', 'card_images')
+CARD_IMAGE_FOLDER = os.path.join(BASE_DIR, 'assets', 'card_images')
 
 # Card Dimensions
 CARD_WIDTH = 100
