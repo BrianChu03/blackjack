@@ -72,7 +72,7 @@ class GUI:
         
         # Proceed to game button
         self.proceed_to_game_button = Button(back_button_x, back_button_y, c.MUTTON_WIDTH, c.MUTTON_HEIGHT, "Proceed to Game",
-                                            self.prepare_game_screen)
+                                            self.start_first_round)
         
         self.player_minus_button = Button(0, 0, c.GS_ADJUST_BUTTON_SIZE, c.GS_ADJUST_BUTTON_SIZE, "-",
                                             self.decrease_players, font_size=c.FONT_SIZE_ADJUST_BUTTON_INTERNAL)
@@ -117,6 +117,9 @@ class GUI:
             card_back_placeholder.fill(c.GREEN)
             pygame.draw.rect(card_back_placeholder, c.WHITE, card_back_placeholder.get_rect(), 3)
             self.card_images[c.CARD_BACK_KEY] = card_back_placeholder
+
+        # New round button
+        self.new_round_button = Button(0, 0, c.NEW_ROUND_BUTTON_WIDTH, c.NEW_ROUND_BUTTON_HEIGHT, "New Round", self.start_new_round, font_size=c.ACTION_BUTTON_FONT_SIZE)
 
         # Default is menu screen
         self.setup_menu_screen()
@@ -198,12 +201,27 @@ class GUI:
         print("Preparing game screen!")
         self.current_screen = 'game_active'
         self.current_bet = c.MIN_BET
-        # We set the chips from the settings in the game object, it will rollover to game screen
-        self.game.player.chips = self.num_chips
-        print(f"Player starting chips set to: {self.game.player.chips} (from GUI settings: {self.num_chips})")
 
         self.game.new_round()
         self.update_game_buttons()
+
+    def start_first_round(self):
+        print("Starting first round from settings...")
+        # We set the chips from the settings in the game object, it will rollover to game screen
+        self.game.player.chips = self.num_chips
+        print(f"Player starting chips set to: {self.game.player.chips} (from GUI settings: {self.num_chips})")
+        self.prepare_game_screen()
+
+    def start_new_round(self):
+        print("Starting new round...")
+        # player chips persist between rounds
+        if self.game.player.chips < c.MIN_BET:
+            self.game.message = f"Not enough chips to start a new round (Min Bet: ${c.MIN_BET}). Game Over!"
+            self.current_screen = 'menu'
+            self.setup_menu_screen()
+            print(self.game.message)
+            return
+        self.prepare_game_screen()
 
     def increase_current_bet(self):
         if self.current_bet < c.MAX_BET:
@@ -315,9 +333,14 @@ class GUI:
                 btn.rect.centery = c.ACTION_BUTTON_Y
                 self.buttons.append(btn)
                 current_x += btn.rect.width + c.ACTION_BUTTON_SPACING
-        elif self.game.state == GameState.DEALER_TURN or self.game.state == GameState.GAME_OVER:
-            # TODO: ADD "new round" button or "continue" button
+        elif self.game.state == GameState.DEALER_TURN:
+            # no player input buttons during dealer's turn
             pass
+        elif self.game.state == GameState.GAME_OVER:
+            # Add new round button
+            self.new_round_button.rect.centerx = c.SCREEN_WIDTH // 2
+            self.new_round_button.rect.centery = c.NEW_ROUND_BUTTON_Y
+            self.buttons.append(self.new_round_button)
 
     ##### Deal Screen Methods #####
     def draw_hand(self, surface, hand_obj, x_center, y_center):
@@ -512,8 +535,3 @@ class GUI:
                         elif self.current_screen == 'instructions':
                             self.back_button.update_hover(mouse_pos)
                         break
-
-
-
-
-    
