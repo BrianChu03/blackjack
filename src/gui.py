@@ -1,7 +1,7 @@
 import pygame
 from pygame.locals import *
 import guiconstants as c
-from gamelogic import GameState
+from gamelogic import GameState, BlackjackGame
 from loadimage import load_card_images
 
 
@@ -99,9 +99,12 @@ class GUI:
             self.chip_image = None
 
         # Bet and deal buttons for game screen
-        self.bet_decrease_button = Button(0, 0, c.HUD_BET_BUTTON_SIZE, c.HUD_BET_BUTTON_SIZE, "-", self.decrease_current_bet, font_size=c.HUD_BET_BUTTON_FONT_SIZE)
-        self.bet_increase_button = Button(0, 0, c.HUD_BET_BUTTON_SIZE, c.HUD_BET_BUTTON_SIZE, "+", self.increase_current_bet, font_size=c.HUD_BET_BUTTON_FONT_SIZE)
-        self.deal_button = Button(0, 0, c.HUD_DEAL_BUTTON_WIDTH, c.HUD_DEAL_BUTTON_HEIGHT, "Deal", self.place_bet_and_deal)
+        self.bet_decrease_button = Button(0, 0, c.HUD_BET_BUTTON_SIZE, c.HUD_BET_BUTTON_SIZE,
+                                          "-", self.decrease_current_bet, font_size=c.HUD_BET_BUTTON_FONT_SIZE)
+        self.bet_increase_button = Button(0, 0, c.HUD_BET_BUTTON_SIZE, c.HUD_BET_BUTTON_SIZE,
+                                          "+", self.increase_current_bet, font_size=c.HUD_BET_BUTTON_FONT_SIZE)
+        self.deal_button = Button(0, 0, c.HUD_DEAL_BUTTON_WIDTH, c.HUD_DEAL_BUTTON_HEIGHT,
+                                  "Deal", self.place_bet_and_deal)
 
         # Player action buttons (hit, stand, double, split)
         self.hit_button = Button(0, 0, c.ACTION_BUTTON_WIDTH, c.ACTION_BUTTON_HEIGHT, "Hit", self.player_hit, font_size=c.ACTION_BUTTON_FONT_SIZE)
@@ -119,18 +122,28 @@ class GUI:
             self.card_images[c.CARD_BACK_KEY] = card_back_placeholder
 
         # New round button
-        self.new_round_button = Button(0, 0, c.NEW_ROUND_BUTTON_WIDTH, c.NEW_ROUND_BUTTON_HEIGHT, "New Round", self.start_new_round, font_size=c.ACTION_BUTTON_FONT_SIZE)
+        self.new_round_button = Button(0, 0, c.NEW_ROUND_BUTTON_WIDTH, c.NEW_ROUND_BUTTON_HEIGHT,
+                                       "New Round", self.start_new_round,
+                                       font_size=c.ACTION_BUTTON_FONT_SIZE)
+
+        # reset and return to menu buttons
+        self.return_to_menu_gs_button = Button(0, 0, c.UTIL_BUTTON_WIDTH, c.UTIL_BUTTON_HEIGHT, 
+                                             "Main Menu", self.setup_menu_screen, 
+                                             font_size=c.UTIL_BUTTON_FONT_SIZE)
+        self.reset_game_gs_button = Button(0, 0, c.UTIL_BUTTON_WIDTH, c.UTIL_BUTTON_HEIGHT, 
+                                         "Reset Game", self.reset_game_and_show_settings, 
+                                         font_size=c.UTIL_BUTTON_FONT_SIZE)
 
         # Default is menu screen
         self.setup_menu_screen()
     
-    ##### Menu Screen Methods #####
+    # ----- Menu Screen Methods ----- #
     def setup_menu_screen(self):
         self.current_screen = 'menu'
         self.buttons.clear()
         self.buttons.extend([self.start_button, self.instruct_button, self.exit_button])
 
-    ##### Game Settings Methods #####
+    # ----- Game Settings Methods ----- #
     def increase_players(self):
         if self.num_players < 6:
             self.num_players += 1
@@ -196,7 +209,7 @@ class GUI:
                                 self.chips_minus_button, self.chips_plus_button,
                                 self.proceed_to_game_button])
 
-    ##### Game Screen Methods #####
+    # ----- Game Screen Methods ----- #
     def prepare_game_screen(self):
         print("Preparing game screen!")
         self.current_screen = 'game_active'
@@ -222,6 +235,13 @@ class GUI:
             print(self.game.message)
             return
         self.prepare_game_screen()
+
+    # method to reset game completely (and take back user to settings screen)
+    def reset_game_and_show_settings(self):
+        print("Resetting game and returning to settings...")
+        # create a new game object to reset everything
+        self.game = BlackjackGame()
+        self.show_game_settings()
 
     def increase_current_bet(self):
         if self.current_bet < c.MAX_BET:
@@ -251,7 +271,7 @@ class GUI:
         
         self.update_game_buttons()
 
-    ##### Player Action Methods #####
+    # ----- Player Action Methods ----- #
     def player_hit(self):
         print("Player hit!")
         self.game.hit()
@@ -274,7 +294,15 @@ class GUI:
 
     def update_game_buttons(self):
         self.buttons.clear()
-        if self.game.state == GameState.BETTING:
+
+        # Add utility buttons if on game_active screen, regardless of game state
+        if self.current_screen == 'game_active':
+            self.reset_game_gs_button.rect.topright = (c.SCREEN_WIDTH - c.UTIL_BUTTON_RIGHT_MARGIN, c.UTIL_BUTTON_TOP_MARGIN)
+            self.return_to_menu_gs_button.rect.topright = (c.SCREEN_WIDTH - c.UTIL_BUTTON_RIGHT_MARGIN, 
+                                                          self.reset_game_gs_button.rect.bottom + c.UTIL_BUTTON_SPACING)
+            self.buttons.extend([self.return_to_menu_gs_button, self.reset_game_gs_button])
+
+        if self.game.state == GameState.BETTING and self.current_screen == 'game_active':
             bet_text_str = f"Bet: ${self.current_bet}"
             bet_text_surf = self.hud_font.render(bet_text_str, True, c.WHITE)
             bet_text_rect = bet_text_surf.get_rect()
@@ -307,7 +335,7 @@ class GUI:
             self.deal_button.rect.centery = c.HUD_BET_CONTROLS_Y_CENTER
 
             self.buttons.extend([self.bet_decrease_button, self.bet_increase_button, self.deal_button])
-        elif self.game.state == GameState.PLAYER_TURN:
+        elif self.game.state == GameState.PLAYER_TURN and self.current_screen == 'game_active':
             # Player action buttons (hit, stand, double, split)
             action_buttons_to_display = [self.hit_button, self.stand_button]
 
@@ -333,16 +361,16 @@ class GUI:
                 btn.rect.centery = c.ACTION_BUTTON_Y
                 self.buttons.append(btn)
                 current_x += btn.rect.width + c.ACTION_BUTTON_SPACING
-        elif self.game.state == GameState.DEALER_TURN:
+        elif self.game.state == GameState.DEALER_TURN and self.current_screen == 'game_active':
             # no player input buttons during dealer's turn
             pass
-        elif self.game.state == GameState.GAME_OVER:
+        elif self.game.state == GameState.GAME_OVER and self.current_screen == 'game_active':
             # Add new round button
             self.new_round_button.rect.centerx = c.SCREEN_WIDTH // 2
             self.new_round_button.rect.centery = c.NEW_ROUND_BUTTON_Y
             self.buttons.append(self.new_round_button)
 
-    ##### Deal Screen Methods #####
+    # ----- Deal Screen Methods ----- #
     def draw_hand(self, surface, hand_obj, x_center, y_center):
         if not hand_obj or not hand_obj.cards:
             return
@@ -371,7 +399,7 @@ class GUI:
                 if card_key != c.CARD_BACK_KEY: # Avoid spamming for card_back if it's missing
                     print(f"Warning: Card image not found for key: {card_key}")
 
-    ##### Instructions and Exit Methods #####
+    # ----- Instructions and Exit Methods ----- #
     def show_instructions(self):
         print("Instructions button pressed!")
         self.current_screen = "instructions"
@@ -384,7 +412,7 @@ class GUI:
         pygame.quit()
         exit()
 
-    ##### This is where the magic happens #####
+    # ----- This is where the magic happens ----- #
     # The render method is called every frame to update the display
     # It draws the current screen and all buttons
     def render(self):
