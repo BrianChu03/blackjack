@@ -222,9 +222,3 @@ class BlackjackGame:
         # reset everything
         self.state = GameState.BETTING
         self.message = "Place your bet!"
-
-
-
-
-
-    
