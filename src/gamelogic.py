@@ -1,7 +1,6 @@
 import pygame
 import sys
 import guiconstants as c
-from deck import load_card_image
 from CardClass import Card, Deck, Dealer, Hand, Player
 from enum import Enum
 
@@ -11,10 +10,10 @@ class GameState(Enum):
     DEALER_TURN = 2
     GAME_OVER = 3
 class BlackjackGame:
-    def __init__(self, num_players: int = 1, num_decks: int = 6):
+    def __init__(self, num_players: int = 1, num_decks: int = 6, initial_chips: int = 1000):
         self.deck = Deck(num_decks)
         # Added multiple players
-        self.players = [Player(f"Player {i+1}") for i in range(num_players)]
+        self.players = [Player(f"Player {i+1}", chips=initial_chips) for i in range(num_players)]
         self.num_players = num_players
         self.current_player_index = 0
         self.dealer = Dealer()

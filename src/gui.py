@@ -46,6 +46,7 @@ class GUI:
         # FONT for HUD
         self.hud_font = pygame.font.SysFont(None, c.HUD_LABEL_FONT_SIZE)
         self.chip_font = pygame.font.SysFont(None, c.HUD_CHIP_FONT_SIZE)
+        self.game_over_font = pygame.font.SysFont(None, c.FONT_SIZE_GAME_OVER_MESSAGE)
 
         # player and chip settings
         self.num_players = 1
@@ -104,7 +105,7 @@ class GUI:
         self.bet_increase_button = Button(0, 0, c.HUD_BET_BUTTON_SIZE, c.HUD_BET_BUTTON_SIZE,
                                           "+", self.increase_current_bet, font_size=c.HUD_BET_BUTTON_FONT_SIZE)
         self.deal_button = Button(0, 0, c.HUD_DEAL_BUTTON_WIDTH, c.HUD_DEAL_BUTTON_HEIGHT,
-                                  "Deal", self.place_bet_and_deal)
+                                  "Deal", self.submit_current_player_bet)
 
         # Player action buttons (hit, stand, double, split)
         self.hit_button = Button(0, 0, c.ACTION_BUTTON_WIDTH, c.ACTION_BUTTON_HEIGHT, "Hit", self.player_hit, font_size=c.ACTION_BUTTON_FONT_SIZE)
@@ -166,12 +167,13 @@ class GUI:
             print("Maximum number of chips reached!")
 
     def decrease_chips(self):
-        if self.num_chips > 100:
+        if self.num_chips > c.MIN_CHIP_SETTING:
             self.num_chips -= 100
+            if self.num_chips < c.MIN_CHIP_SETTING:
+                self.num_chips = c.MIN_CHIP_SETTING
             print(f"Number of chips: {self.num_chips}")
-        elif self.num_chips > 0:
-            self.num_chips = max(0, self.num_chips - 10)
-            print(f"Number of chips: {self.num_chips}")
+        else:
+            print("Minimum number of chips reached!")
 
     def show_game_settings(self):
         print("Game Settings button pressed!")
@@ -210,7 +212,7 @@ class GUI:
                                 self.proceed_to_game_button])
 
     # ----- Game Screen Methods ----- #
-    def prepare_game_screen(self):
+    def _setup_betting_phase(self):
         print("Preparing game screen!")
         self.current_screen = 'game_active'
         self.current_bet = c.MIN_BET
@@ -221,26 +223,27 @@ class GUI:
     def start_first_round(self):
         print("Starting first round from settings...")
         # We set the chips from the settings in the game object, it will rollover to game screen
-        self.game.player.chips = self.num_chips
-        print(f"Player starting chips set to: {self.game.player.chips} (from GUI settings: {self.num_chips})")
-        self.prepare_game_screen()
+        self.game = BlackjackGame(num_players=self.num_players, initial_chips=self.num_chips)
+        print(f"Game started with {self.game.num_players} players. Initial chips per player: {self.num_chips}")
+    
+        self._setup_betting_phase()
 
     def start_new_round(self):
         print("Starting new round...")
         # player chips persist between rounds
-        if self.game.player.chips < c.MIN_BET:
-            self.game.message = f"Not enough chips to start a new round (Min Bet: ${c.MIN_BET}). Game Over!"
+        if self.game.players and self.game.players[0].chips < c.MIN_BET:
+            self.game.message = f"Player 1 has insufficient chips (Min Bet: ${c.MIN_BET}). Game Over."
             self.current_screen = 'menu'
             self.setup_menu_screen()
             print(self.game.message)
             return
-        self.prepare_game_screen()
+        self._setup_betting_phase()
 
     # method to reset game completely (and take back user to settings screen)
     def reset_game_and_show_settings(self):
         print("Resetting game and returning to settings...")
         # create a new game object to reset everything
-        self.game = BlackjackGame()
+        self.game = BlackjackGame(num_players=1, initial_chips=self.num_chips)
         self.show_game_settings()
 
     def increase_current_bet(self):
@@ -258,18 +261,27 @@ class GUI:
         else:
             print("Minimum bet reached!")
 
-    def place_bet_and_deal(self):
-        print(f"Placing bet: {self.current_bet} and dealing cards.")
-        if self.current_bet > self.game.player.chips:
-            print("Bet exceeds available chips!")
-            self.game.message = "Bet exceeds available chips! Lower bet to continue."
+    def submit_current_player_bet(self):
+        current_player_for_bet = self.game.get_current_player()
+        if not current_player_for_bet:
+            print("Error: No current player to submit bet for.")
             return
+
+        print(f"{current_player_for_bet.name} is placing bet: {self.current_bet}")
         
-        success = self.game.start_round(self.current_bet)
-        if not success:
-            print(f"Failed to start round: {self.game.message}")
+        if self.current_bet > current_player_for_bet.chips:
+            self.game.message = f"{current_player_for_bet.name}: Bet exceeds available chips!"
+            print(self.game.message)
+            # Player needs to adjust bet.
+            return 
         
-        self.update_game_buttons()
+        success = self.game.accept_player_bet(self.current_bet)
+        
+        if success:
+            if not self.game.all_bets_placed: # More players need to bet
+                self.current_bet = c.MIN_BET # Reset GUI bet input for next player
+        
+        self.update_game_buttons() # Update buttons based on new state/player
 
     # ----- Player Action Methods ----- #
     def player_hit(self):
@@ -301,6 +313,8 @@ class GUI:
             self.return_to_menu_gs_button.rect.topright = (c.SCREEN_WIDTH - c.UTIL_BUTTON_RIGHT_MARGIN, 
                                                           self.reset_game_gs_button.rect.bottom + c.UTIL_BUTTON_SPACING)
             self.buttons.extend([self.return_to_menu_gs_button, self.reset_game_gs_button])
+
+        current_player = self.game.get_current_player()
 
         if self.game.state == GameState.BETTING and self.current_screen == 'game_active':
             bet_text_str = f"Bet: ${self.current_bet}"
@@ -338,27 +352,28 @@ class GUI:
         elif self.game.state == GameState.PLAYER_TURN and self.current_screen == 'game_active':
             # Player action buttons (hit, stand, double, split)
             action_buttons_to_display = [self.hit_button, self.stand_button]
+            player_current_hand = current_player.current_hand
 
             # Log to determine if double down is available
             # Because game logic already checks for double down, we can just check if the player has enough chips
-            if len(self.game.player.current_hand.cards) == 2:
+            if len(player_current_hand.cards) == 2:
                 action_buttons_to_display.append(self.double_down_button)
                 # check for split
-                p_hand = self.game.player.current_hand
-                if len(p_hand.cards) == 2 and p_hand.cards[0].rank == p_hand.cards[1].rank and self.game.player.chips >= self.current_bet:
+                current_hand_bet = current_player.bets[current_player.current_hand_index] if current_player.bets else 0
+                if player_current_hand.cards[0].rank == player_current_hand.cards[1].rank and current_player.chips >= current_hand_bet:
                     action_buttons_to_display.append(self.split_button)
 
             num_actions_buttons = len(action_buttons_to_display)
             # calculate the total width of the action buttons
-            total_action_buttons_width = num_actions_buttons * c.ACTION_BUTTON_WIDTH +(num_actions_buttons - 1) * c.ACTION_BUTTON_SPACING
+            total_action_buttons_width = num_actions_buttons * c.ACTION_BUTTON_WIDTH + (num_actions_buttons - 1) * c.ACTION_BUTTON_SPACING
             current_x = (c.SCREEN_WIDTH - total_action_buttons_width) // 2
 
             # Set the y position for action buttons (I need them to be centered right below the player hand)
-            action_buttons_y = c.PLAYER_HAND_Y_CENTER - c.ACTION_BUTTON_Y_OFFSET_FROM_CARDS
+            action_buttons_y = c.PLAYER_HAND_Y_CENTER + c.ACTION_BUTTON_Y_OFFSET_FROM_CARDS
 
             for btn in action_buttons_to_display:
                 btn.rect.left = current_x
-                btn.rect.centery = c.ACTION_BUTTON_Y
+                btn.rect.centery = action_buttons_y
                 self.buttons.append(btn)
                 current_x += btn.rect.width + c.ACTION_BUTTON_SPACING
         elif self.game.state == GameState.DEALER_TURN and self.current_screen == 'game_active':
@@ -477,8 +492,17 @@ class GUI:
             self.screen.blit(chips_val_surf, chips_val_rect)
 
         elif self.current_screen == 'game_active':
+            current_player_for_display = self.game.get_current_player()
+
+            # chip count for current player
+            player_chips_to_display = 0
+            if current_player_for_display:
+                player_chips_to_display = current_player_for_display.chips
+            elif self.game.players: # if there is no current player, show the first player (if any)
+                player_chips_to_display = self.game.players[0].chips
+
             # Draw chip image
-            chip_text_surf = self.chip_font.render(f"$ {self.game.player.chips}", True, c.WHITE)
+            chip_text_surf = self.chip_font.render(f"$ {player_chips_to_display}", True, c.WHITE)
             chip_text_rect = chip_text_surf.get_rect(centery=c.HUD_CHIP_COUNT_Y)
             chip_text_rect.left = c.HUD_CHIP_COUNT_X
 
@@ -488,13 +512,13 @@ class GUI:
                 self.screen.blit(self.chip_image, img_rect)
             else:
                 # Placeholder for chip image if loading fails
-                placeholder_img = pygame.Rect(self.screen, c.BROWN, (0, 0, c.HUD_CHIP_IMAGE_SIZE[0], c.HUD_CHIP_IMAGE_SIZE[1]))
+                placeholder_img = pygame.Rect(0, 0, c.HUD_CHIP_IMAGE_SIZE[0], c.HUD_CHIP_IMAGE_SIZE[1])
                 placeholder_img.right = chip_text_rect.left - 10
                 placeholder_img.centery = c.HUD_CHIP_COUNT_Y
                 pygame.draw.rect(self.screen, c.BROWN, placeholder_img)
             self.screen.blit(chip_text_surf, chip_text_rect)
 
-            if self.game.state == GameState.BETTING:
+            if self.game.state == GameState.BETTING and not self.game.all_bets_placed:
                 bet_text_str = f"Bet: ${self.current_bet}"
                 bet_text_str = self.hud_font.render(bet_text_str, True, c.WHITE)
                 if hasattr(self, 'bet_text_render_rect'):
@@ -504,39 +528,77 @@ class GUI:
                     msg_y_pos = c.HUD_BET_CONTROLS_Y_CENTER - c.HUD_GAME_MESSAGE_Y_OFFSET
                     message_rect = message_surf.get_rect(center=(c.SCREEN_WIDTH // 2, msg_y_pos))
                     self.screen.blit(message_surf, message_rect)
-            else:
+            elif self.game.state == GameState.GAME_OVER:
                 if self.game.message:
-                    message_surf = self.chip_font.render(self.game.message,True, c.WHITE)
-                    message_rect = message_surf.get_rect(center=(c.SCREEN_WIDTH // 2, 50))
-                    self.screen.blit(message_surf, message_rect)
-            # Display player and dealer hands
-            if self.game.dealer:
-                # Backend draw logic for dealer's hand
-                self.draw_hand(self.screen, self.game.dealer.hand, c.SCREEN_WIDTH // 2, c.DEALER_HAND_Y_CENTER)
-                if self.game.dealer.hand and self.game.dealer.hand.cards:
-                    value_text = ""
-                    # display dealer's score
-                    if self.game.state == GameState.PLAYER_TURN and len(self.game.dealer.hand.cards) == 2 and not self.game.dealer.hand.cards[1].face_up:
-                        value_text = f"Value: {self.game.dealer.hand.cards[0].value} + ?"
-                    else:
-                        value_text = f"Value: {self.game.dealer.hand.value}"
+                    # Render multi-line game over summary
+                    summary_content = self.game.message
+                    if summary_content.startswith("Round Over: "):
+                        summary_content = summary_content[len("Round Over: "):]
+                    
+                    player_summary_lines = summary_content.split(" | ")
+                    if not player_summary_lines or (len(player_summary_lines) == 1 and not player_summary_lines[0].strip()):
+                         player_summary_lines = ["Game Over. Click New Round to play again."]
 
-                    dealer_score_surf = self.hud_font.render(value_text, True, c.WHITE)
-                    dealer_score_rect = dealer_score_surf.get_rect(center=(c.SCREEN_WIDTH // 2, c.DEALER_HAND_Y_CENTER + c.HAND_VALUE_TEXT_Y_OFFSET))
-                    self.screen.blit(dealer_score_surf, dealer_score_rect)
+                    rendered_lines = []
+                    max_width = 0
+                    for line_str in player_summary_lines:
+                        line_surf = self.game_over_font.render(line_str, True, c.WHITE)
+                        rendered_lines.append(line_surf)
+                        if line_surf.get_width() > max_width:
+                            max_width = line_surf.get_width()
+                    
+                    line_height = self.game_over_font.get_linesize()
+                    total_text_height = len(rendered_lines) * line_height
+                    
+                    new_round_button_top = c.NEW_ROUND_BUTTON_Y - c.NEW_ROUND_BUTTON_HEIGHT // 2
+                    text_block_bottom = new_round_button_top - c.GAME_OVER_MESSAGE_MARGIN_ABOVE_BUTTON
+                    current_render_y = text_block_bottom - total_text_height
+                    
+                    for line_surf in rendered_lines:
+                        line_rect = line_surf.get_rect(centerx=c.SCREEN_WIDTH // 2, top=current_render_y)
+                        self.screen.blit(line_surf, line_rect)
+                        current_render_y += line_height
+            elif self.game.message:
+                message_surf = self.chip_font.render(self.game.message,True, c.WHITE)
+                message_rect = message_surf.get_rect(center=(c.SCREEN_WIDTH // 2, 50))
+                self.screen.blit(message_surf, message_rect)
 
-            # Display Player's hand
-            if self.game.player and self.game.player.hands:
-                for i, hand in enumerate(self.game.player.hands): # Iterate through player's hands (for split later)
-                    # Display hand and score only if cards exist in this hand
-                    if hand and hand.cards:
-                        self.draw_hand(self.screen, hand, c.SCREEN_WIDTH // 2, c.PLAYER_HAND_Y_CENTER + (i * (c.CARD_HEIGHT + 60))) # Basic Y offset for split hands
+
+            # display hands if cards have been dealt
+            if not (self.game.state == GameState.BETTING and not self.game.all_bets_placed):
+                # Dealer's hand
+                if self.game.dealer:
+                    self.draw_hand(self.screen, self.game.dealer.hand, c.SCREEN_WIDTH // 2, c.DEALER_HAND_Y_CENTER)
+                    # Display dealer's score only if cards exist
+                    if self.game.dealer.hand and self.game.dealer.hand.cards: 
+                        value_text = ""
+                        if self.game.state == GameState.PLAYER_TURN and len(self.game.dealer.hand.cards) == 2 and not self.game.dealer.hand.cards[1].face_up:
+                            value_text = f"Value: {self.game.dealer.hand.cards[0].value} + ?"
+                        else: 
+                            value_text = f"Value: {self.game.dealer.hand.value}"
                         
-                        player_score_surf = self.hud_font.render(f"Value: {hand.value}", True, c.WHITE)
-                        player_score_rect = player_score_surf.get_rect(
-                            center=(c.SCREEN_WIDTH // 2, c.PLAYER_HAND_Y_CENTER + (i * (c.CARD_HEIGHT + 60)) + c.HAND_VALUE_TEXT_Y_OFFSET)
+                        dealer_score_surf = self.hud_font.render(value_text, True, c.WHITE)
+                        dealer_score_rect = dealer_score_surf.get_rect(
+                            center=(c.SCREEN_WIDTH // 2, c.DEALER_HAND_Y_CENTER + c.HAND_VALUE_TEXT_Y_OFFSET)
                         )
-                        self.screen.blit(player_score_surf, player_score_rect)
+                        self.screen.blit(dealer_score_surf, dealer_score_rect)
+
+                # Player's hand
+                if current_player_for_display and current_player_for_display.hands:
+                     for i, hand in enumerate(current_player_for_display.hands):
+                        # Display hand and score only if cards exist in this specific hand
+                        if hand and hand.cards: 
+                            player_y_center = c.PLAYER_HAND_Y_CENTER + (i * (c.CARD_HEIGHT + 60))
+                            self.draw_hand(self.screen, hand, c.SCREEN_WIDTH // 2, player_y_center)
+                            
+                            player_score_surf = self.hud_font.render(f"Value: {hand.value}", True, c.WHITE)
+                            player_score_rect = player_score_surf.get_rect(
+                                center=(c.SCREEN_WIDTH // 2, player_y_center + c.HAND_VALUE_TEXT_Y_OFFSET)
+                            )
+                            self.screen.blit(player_score_surf, player_score_rect)
+                elif not current_player_for_display and self.game.players: 
+                    # This block was for potentially showing all hands if no current player, can be refined or removed if not desired
+                    pass 
 
         for button in self.buttons:
             button.draw(self.screen)
