@@ -41,11 +41,6 @@ INSTRUCTIONS_TITLE_Y_POS = 100 # Initial Y for instructions title, might be adju
 INSTRUCTIONS_TEXT_Y_START = 200
 INSTRUCTIONS_TEXT_LINE_SPACING = 40
 
-# Card Dimensions
-CARD_WIDTH = 100
-CARD_HEIGHT = 140
-CARD_SPACING = 25
-
 # Game Screen HUD (Chips, Bet Buttons, Reset, Return to Menu)
 HUD_CHIP_COUNT_X = 100 # X position for chip count text
 HUD_CHIP_COUNT_Y = SCREEN_HEIGHT - 50 
@@ -85,3 +80,21 @@ PLAYER_HAND_TEXT_X = SCREEN_WIDTH // 2
 PLAYER_HAND_TEXT_Y = SCREEN_HEIGHT // 2
 DEALER_HAND_TEXT_X = SCREEN_WIDTH // 2
 DEALER_HAND_TEXT_Y = SCREEN_HEIGHT // 2 - 100
+
+CARD_IMAGE_FOLDER = "assets/cards"
+
+# Card Dimensions
+CARD_WIDTH = 100
+CARD_HEIGHT = 140
+CARD_SPACING = 25
+
+CARD_SPACING_IN_HAND = 30 # when displayed in hand
+CARD_BACK_KEY = "back_of_card"
+
+# Card positions
+DEALER_HAND_Y_CENTER = SCREEN_HEIGHT // 4
+PLAYER_HAND_Y_CENTER = SCREEN_HEIGHT - 300
+
+# Action buttons positions relative to hand
+ACTION_BUTTON_Y_OFFSET_FROM_CARDS = CARD_HEIGHT // 2 + 40
+HAND_VALUE_TEXT_Y_OFFSET = - (CARD_HEIGHT // 2 + 25)

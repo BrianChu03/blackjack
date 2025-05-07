@@ -2,6 +2,8 @@ import pygame
 from pygame.locals import *
 import guiconstants as c
 from gamelogic import GameState
+from loadimage import load_card_images
+
 
 class Button:
     def __init__(self, x, y, width, height, text, action=None, font_size=36):
@@ -107,6 +109,15 @@ class GUI:
         self.double_down_button = Button(0, 0, c.ACTION_BUTTON_WIDTH, c.ACTION_BUTTON_HEIGHT, "Double", self.player_double_down, font_size=c.ACTION_BUTTON_FONT_SIZE)
         self.split_button = Button(0, 0, c.ACTION_BUTTON_WIDTH, c.ACTION_BUTTON_HEIGHT, "Split", self.player_split, font_size=c.ACTION_BUTTON_FONT_SIZE)
         
+        # Load card images
+        self.card_images = load_card_images()
+        if c.CARD_BACK_KEY not in self.card_images:
+            print(f"Error loading card back image: {c.CARD_BACK_KEY}. Using placeholder")
+            card_back_placeholder = pygame.Surface((c.CARD_WIDTH, c.CARD_HEIGHT))
+            card_back_placeholder.fill(c.GREEN)
+            pygame.draw.rect(card_back_placeholder, c.WHITE, card_back_placeholder.get_rect(), 3)
+            self.card_images[c.CARD_BACK_KEY] = card_back_placeholder
+
         # Default is menu screen
         self.setup_menu_screen()
     
@@ -288,7 +299,7 @@ class GUI:
                 action_buttons_to_display.append(self.double_down_button)
                 # check for split
                 p_hand = self.game.player.current_hand
-                if len(p_hand.cards) == 2 and p_hand.cards[0].rank == p_hand.cards[1].rank and self.game.player.chips >= self.game.player.current_bet:
+                if len(p_hand.cards) == 2 and p_hand.cards[0].rank == p_hand.cards[1].rank and self.game.player.chips >= self.current_bet:
                     action_buttons_to_display.append(self.split_button)
 
             num_actions_buttons = len(action_buttons_to_display)
@@ -296,14 +307,46 @@ class GUI:
             total_action_buttons_width = num_actions_buttons * c.ACTION_BUTTON_WIDTH +(num_actions_buttons - 1) * c.ACTION_BUTTON_SPACING
             current_x = (c.SCREEN_WIDTH - total_action_buttons_width) // 2
 
+            # Set the y position for action buttons (I need them to be centered right below the player hand)
+            action_buttons_y = c.PLAYER_HAND_Y_CENTER - c.ACTION_BUTTON_Y_OFFSET_FROM_CARDS
+
             for btn in action_buttons_to_display:
                 btn.rect.left = current_x
                 btn.rect.centery = c.ACTION_BUTTON_Y
                 self.buttons.append(btn)
                 current_x += btn.rect.width + c.ACTION_BUTTON_SPACING
-        elif self.game.state == GameState.DEALER_TURN:
+        elif self.game.state == GameState.DEALER_TURN or self.game.state == GameState.GAME_OVER:
             # TODO: ADD "new round" button or "continue" button
             pass
+
+    ##### Deal Screen Methods #####
+    def draw_hand(self, surface, hand_obj, x_center, y_center):
+        if not hand_obj or not hand_obj.cards:
+            return
+
+        num_cards = len(hand_obj.cards)
+        total_hand_width = num_cards * c.CARD_WIDTH + (num_cards - 1) * c.CARD_SPACING_IN_HAND
+        start_x = x_center - total_hand_width // 2
+
+        # draw each card in the hand
+        for i, card_game_obj in enumerate(hand_obj.cards):
+            card_key = card_game_obj.get_image_key()
+            card_image_surface = self.card_images.get(card_key)
+
+            if card_image_surface:
+                card_x_pos = start_x + i * (c.CARD_WIDTH + c.CARD_SPACING_IN_HAND)
+                card_y_pos = y_center - c.CARD_HEIGHT // 2
+                surface.blit(card_image_surface, (card_x_pos, card_y_pos))
+            else:
+                # Fallback if specific card image is missing (should not happen if keys match assets)
+                placeholder_rect = pygame.Rect(start_x + i * (c.CARD_WIDTH + c.CARD_SPACING_IN_HAND), 
+                                               y_center - c.CARD_HEIGHT // 2, 
+                                               c.CARD_WIDTH, c.CARD_HEIGHT)
+                pygame.draw.rect(surface, c.BLACK, placeholder_rect)
+                missing_text = self.small_font.render(f"{card_key}?", True, c.WHITE)
+                surface.blit(missing_text, missing_text.get_rect(center=placeholder_rect.center))
+                if card_key != c.CARD_BACK_KEY: # Avoid spamming for card_back if it's missing
+                    print(f"Warning: Card image not found for key: {card_key}")
 
     ##### Instructions and Exit Methods #####
     def show_instructions(self):
@@ -415,29 +458,34 @@ class GUI:
                     message_surf = self.chip_font.render(self.game.message,True, c.WHITE)
                     message_rect = message_surf.get_rect(center=(c.SCREEN_WIDTH // 2, 50))
                     self.screen.blit(message_surf, message_rect)
-                # Display player and dealer hands
-                if self.game.dealer and self.game.dealer.hand.cards:
-                    dealer_hand_str = self.game.dealer.show_partial_hand() if self.game.state == GameState.PLAYER_TURN else str(self.game.dealer.hand)
-                    dealer_text_surf = self.hud_font.render(f"Dealer: {dealer_hand_str} (Value: {self.game.dealer.hand.value if self.game.state != GameState.PLAYER_TURN or not self.game.dealer.hand.cards[1].face_up == False else '?'})", True, c.WHITE)
-                    dealer_text_rect = dealer_text_surf.get_rect(center=(c.DEALER_HAND_TEXT_X, c.DEALER_HAND_TEXT_Y))
-                    self.screen.blit(dealer_text_surf, dealer_text_rect)
+            # Display player and dealer hands
+            if self.game.dealer:
+                # Backend draw logic for dealer's hand
+                self.draw_hand(self.screen, self.game.dealer.hand, c.SCREEN_WIDTH // 2, c.DEALER_HAND_Y_CENTER)
+                if self.game.dealer.hand and self.game.dealer.hand.cards:
+                    value_text = ""
+                    # display dealer's score
+                    if self.game.state == GameState.PLAYER_TURN and len(self.game.dealer.hand.cards) == 2 and not self.game.dealer.hand.cards[1].face_up:
+                        value_text = f"Value: {self.game.dealer.hand.cards[0].value} + ?"
+                    else:
+                        value_text = f"Value: {self.game.dealer.hand.value}"
 
-                # Display Player's hand(s) (text placeholder)
-                if self.game.player and self.game.player.hands:
-                    for i, hand in enumerate(self.game.player.hands):
-                        player_hand_str = str(hand)
-                        player_text_surf = self.hud_font.render(f"Player Hand {i+1}: {player_hand_str} (Value: {hand.value})", True, c.WHITE)
-                        # Adjust Y for multiple hands if splitting occurs
-                        player_text_rect = player_text_surf.get_rect(center=(c.PLAYER_HAND_TEXT_X, c.PLAYER_HAND_TEXT_Y + i * 40))
-                        self.screen.blit(player_text_surf, player_text_rect)
+                    dealer_score_surf = self.hud_font.render(value_text, True, c.WHITE)
+                    dealer_score_rect = dealer_score_surf.get_rect(center=(c.SCREEN_WIDTH // 2, c.DEALER_HAND_Y_CENTER + c.HAND_VALUE_TEXT_Y_OFFSET))
+                    self.screen.blit(dealer_score_surf, dealer_score_rect)
 
-                
-
-            if self.game.message:
-                message_surf = self.chip_font.render(self.game.message, True, c.WHITE)
-                msg_y_pos = c.HUD_BET_CONTROLS_Y_CENTER - c.HUD_GAME_MESSAGE_Y_OFFSET
-                message_rect = message_surf.get_rect(center=(c.SCREEN_WIDTH // 2, msg_y_pos))
-                self.screen.blit(message_surf, message_rect)
+            # Display Player's hand
+            if self.game.player and self.game.player.hands:
+                for i, hand in enumerate(self.game.player.hands): # Iterate through player's hands (for split later)
+                    # Display hand and score only if cards exist in this hand
+                    if hand and hand.cards:
+                        self.draw_hand(self.screen, hand, c.SCREEN_WIDTH // 2, c.PLAYER_HAND_Y_CENTER + (i * (c.CARD_HEIGHT + 60))) # Basic Y offset for split hands
+                        
+                        player_score_surf = self.hud_font.render(f"Value: {hand.value}", True, c.WHITE)
+                        player_score_rect = player_score_surf.get_rect(
+                            center=(c.SCREEN_WIDTH // 2, c.PLAYER_HAND_Y_CENTER + (i * (c.CARD_HEIGHT + 60)) + c.HAND_VALUE_TEXT_Y_OFFSET)
+                        )
+                        self.screen.blit(player_score_surf, player_score_rect)
 
         for button in self.buttons:
             button.draw(self.screen)

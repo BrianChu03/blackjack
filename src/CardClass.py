@@ -1,5 +1,6 @@
 import random
 from typing import Optional
+import guiconstants as c
 
 class Card:
     
@@ -27,6 +28,22 @@ class Card:
         if not self.face_up:
             return "Face Down Card"
         return f"{self.rank} of {self.suit}"
+    
+    # Method to get image key for card
+    def get_image_key(self) -> str:
+        if not self.face_up:
+            return c.CARD_BACK_KEY
+        
+        rank_str = self.rank.lower()
+        if self.rank == 'J':
+            rank_str = 'jack'
+        elif self.rank == 'Q':
+            rank_str = 'queen'
+        elif self.rank == 'K':
+            rank_str = 'king'
+        elif self.rank == 'A':
+            rank_str = 'ace'
+        return f"{rank_str}_of_{self.suit.lower()}"
 
 
 class Deck:
