@@ -1,7 +1,6 @@
 import pygame
 import sys
 import guiconstants as c
-from gui import GUI
 from deck import load_card_image
 from CardClass import Card, Deck, Dealer, Hand, Player
 from enum import Enum

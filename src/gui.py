@@ -1,6 +1,7 @@
 import pygame
 from pygame.locals import *
 import guiconstants as c
+from gamelogic import GameState
 
 class Button:
     def __init__(self, x, y, width, height, text, action=None, font_size=36):
@@ -40,6 +41,10 @@ class GUI:
 
         self.current_screen = 'menu' # default screen
 
+        # FONT for HUD
+        self.hud_font = pygame.font.SysFont(None, c.HUD_LABEL_FONT_SIZE)
+        self.chip_font = pygame.font.SysFont(None, c.HUD_CHIP_FONT_SIZE)
+
         # player and chip settings
         self.num_players = 1
         self.num_chips = 1000
@@ -65,7 +70,7 @@ class GUI:
         
         # Proceed to game button
         self.proceed_to_game_button = Button(back_button_x, back_button_y, c.MUTTON_WIDTH, c.MUTTON_HEIGHT, "Proceed to Game",
-                                            self.game.start_round)
+                                            self.prepare_game_screen)
         
         self.player_minus_button = Button(0, 0, c.GS_ADJUST_BUTTON_SIZE, c.GS_ADJUST_BUTTON_SIZE, "-",
                                             self.decrease_players, font_size=c.FONT_SIZE_ADJUST_BUTTON_INTERNAL)
@@ -77,10 +82,26 @@ class GUI:
         self.chips_plus_button = Button(0, 0, c.GS_ADJUST_BUTTON_SIZE, c.GS_ADJUST_BUTTON_SIZE, "+",
                                             self.increase_chips, font_size=c.FONT_SIZE_ADJUST_BUTTON_INTERNAL)
         
+        # Dynamic variable y positions for game setting screen
         self.gs_title_center_y = 0
         self.gs_player_row_center_y = 0
         self.gs_chips_row_center_y = 0
+
+        self.current_bet = c.MIN_BET
+        # Use try, except statement for image loading and scaling
+        try:
+            self.chip_image_original = pygame.image.load(c.HUD_CHIP_IMAGE_PATH).convert_alpha()
+            self.chip_image = pygame.transform.scale(self.chip_image_original, c.HUD_CHIP_IMAGE_SIZE)
+        except pygame.error as e:
+            print(f"Error loading chip image: {e}. Using Placeholder")
+            self.chip_image = None
+
+        # Bet and deal buttons for game screen
+        self.bet_decrease_button = Button(0, 0, c.HUD_BET_BUTTON_SIZE, c.HUD_BET_BUTTON_SIZE, "-", self.decrease_current_bet, font_size=c.HUD_BET_BUTTON_FONT_SIZE)
+        self.bet_increase_button = Button(0, 0, c.HUD_BET_BUTTON_SIZE, c.HUD_BET_BUTTON_SIZE, "+", self.increase_current_bet, font_size=c.HUD_BET_BUTTON_FONT_SIZE)
+        self.deal_button = Button(0, 0, c.HUD_DEAL_BUTTON_WIDTH, c.HUD_DEAL_BUTTON_HEIGHT, "Deal", self.place_bet_and_deal)
         
+        # Default is menu screen
         self.setup_menu_screen()
     
     def setup_menu_screen(self):
@@ -153,15 +174,91 @@ class GUI:
                                 self.chips_minus_button, self.chips_plus_button,
                                 self.proceed_to_game_button])
 
+    def prepare_game_screen(self):
+        print("Preparing game screen!")
+        self.current_screen = 'game_active'
+        self.current_bet = c.MIN_BET
+        # We set the chips from the settings in the game object, it will rollover to game screen
+
+        self.game.new_round()
+        self.update_game_buttons()
+
+    def increase_current_bet(self):
+        if self.current_bet < c.MAX_BET:
+            self.current_bet += c.BET_INCREMENT
+            print(f"Bet increased to {self.current_bet}")
+        else:
+            print("Maximum bet reached!")
+
+    def decrease_current_bet(self):
+        if self.current_bet > c.MIN_BET:
+            self.current_bet -= c.BET_INCREMENT
+            self.current_bet = max(self.current_bet, c.MIN_BET)
+            print(f"Bet decreased to {self.current_bet}")
+        else:
+            print("Minimum bet reached!")
+
+    def place_bet_and_deal(self):
+        print(f"Placing bet: {self.current_bet} and dealing cards.")
+        if self.current_bet > self.game.player.chips:
+            print("Bet exceeds available chips!")
+            self.game.message = "Bet exceeds available chips! Lower bet to continue."
+            return
         
+        success = self.game.start_round(self.current_bet)
+        if not success:
+            print(f"Failed to start round: {self.game.message}")
+        
+        self.update_game_buttons()
+
+    def update_game_buttons(self):
+        self.buttons.clear()
+        if self.game.state == GameState.BETTING:
+            bet_text_str = f"Bet: ${self.current_bet}"
+            bet_text_surf = self.hud_font.render(bet_text_str, True, c.WHITE)
+            bet_text_rect = bet_text_surf.get_rect()
+
+            total_width = (self.bet_decrease_button.rect.width +
+                           c.HUD_BET_ELEMENT_SPACING +
+                           bet_text_rect.width +
+                           c.HUD_BET_ELEMENT_SPACING +
+                           self.bet_increase_button.rect.width +
+                           c.HUD_BET_ELEMENT_SPACING +
+                           self.deal_button.rect.width)
+            current_x = (c.SCREEN_WIDTH - total_width) // 2
+            
+            # Position bet decrease button
+            self.bet_decrease_button.rect.left = current_x
+            self.bet_decrease_button.rect.centery = c.HUD_BET_CONTROLS_Y_CENTER
+            current_x += self.bet_decrease_button.rect.width + c.HUD_BET_ELEMENT_SPACING
+
+            # bet text position (we want it to be centered between the two buttons)
+            self.bet_text_render_rect = bet_text_surf.get_rect(left=current_x, centery=c.HUD_BET_CONTROLS_Y_CENTER)
+            current_x += bet_text_rect.width + c.HUD_BET_ELEMENT_SPACING
+
+            # Position bet increase button
+            self.bet_increase_button.rect.left = current_x
+            self.bet_increase_button.rect.centery = c.HUD_BET_CONTROLS_Y_CENTER
+            current_x += self.bet_increase_button.rect.width + c.HUD_BET_ELEMENT_SPACING
+
+            # Position deal button
+            self.deal_button.rect.left = current_x
+            self.deal_button.rect.centery = c.HUD_BET_CONTROLS_Y_CENTER
+
+            self.buttons.extend([self.bet_decrease_button, self.bet_increase_button, self.deal_button])
+        elif self.game.state == GameState.PLAYER_TURN:
+            # TODO: Add buttons for player actions (hit, stand, double, split)
+            pass
+        elif self.game.state == GameState.DEALER_TURN:
+            # TODO: ADD "new round" button or "continue" button
+            pass
+
     def show_instructions(self):
         print("Instructions button pressed!")
         self.current_screen = "instructions"
         self.buttons.clear()
 
         self.buttons.append(self.back_button)
-        
-
 
     def exit_game(self):
         print("Exit button pressed!")
@@ -231,16 +328,37 @@ class GUI:
             chips_val_surf = chip_font.render(str(self.num_chips), True, c.WHITE)
             chips_val_rect = chips_val_surf.get_rect(center=(c.SCREEN_WIDTH // 2  + c.GS_VALUE_BLOCK_CENTER_X_OFFSET, self.gs_chips_row_center_y))
             self.screen.blit(chips_val_surf, chips_val_rect)
-        elif self.current_screen == 'game_placeholder':
-            title_surf = self.font.render("Game Screen Placeholder", True, c.WHITE)
-            title_rect = title_surf.get_rect(center=(c.SCREEN_WIDTH // 2, c.INSTRUCTIONS_TITLE_Y_POS))
-            self.screen.blit(title_surf, title_rect)
 
-            # Placeholder for game screen
-            game_placeholder_text = self.font.render("Game Screen Placeholder", True, c.WHITE)
-            game_placeholder_rect = game_placeholder_text.get_rect(center=(c.SCREEN_WIDTH // 2, c.SCREEN_HEIGHT // 2))
-            self.screen.blit(game_placeholder_text, game_placeholder_rect)
+        elif self.current_screen == 'game_active':
+            # Draw chip image
+            chip_text_surf = self.chip_font.render(f"$ {self.game.player.chips}", True, c.WHITE)
+            chip_text_rect = chip_text_surf.get_rect(centery=c.HUD_CHIP_COUNT_Y)
+            chip_text_rect.left = c.HUD_CHIP_COUNT_X
 
+            if self.chip_image:
+                img_rect = self.chip_image.get_rect(centery=c.HUD_CHIP_COUNT_Y)
+                img_rect.right = chip_text_rect.left - 10
+                self.screen.blit(self.chip_image, img_rect)
+            else:
+                # Placeholder for chip image if loading fails
+                placeholder_img = pygame.Rect(self.screen, c.BROWN, (0, 0, c.HUD_CHIP_IMAGE_SIZE[0], c.HUD_CHIP_IMAGE_SIZE[1]))
+                placeholder_img.right = chip_text_rect.left - 10
+                placeholder_img.centery = c.HUD_CHIP_COUNT_Y
+                pygame.draw.rect(self.screen, c.BROWN, placeholder_img)
+            self.screen.blit(chip_text_surf, chip_text_rect)
+
+            if self.game.state == GameState.BETTING:
+                bet_text_str = f"Bet: ${self.current_bet}"
+                bet_text_str = self.hud_font.render(bet_text_str, True, c.WHITE)
+                if hasattr(self, 'bet_text_render_rect'):
+                    self.screen.blit(bet_text_str, self.bet_text_render_rect)
+
+
+            if self.game.message:
+                message_surf = self.chip_font.render(self.game.message, True, c.WHITE)
+                msg_y_pos = c.HUD_BET_CONTROLS_Y_CENTER - c.HUD_GAME_MESSAGE_Y_OFFSET
+                message_rect = message_surf.get_rect(center=(c.SCREEN_WIDTH // 2, msg_y_pos))
+                self.screen.blit(message_surf, message_rect)
 
         for button in self.buttons:
             button.draw(self.screen)
