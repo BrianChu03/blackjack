@@ -4,6 +4,14 @@ import gui as ui
 import gamelogic as game
 import guiconstants as c
 
+'''
+Team Members:
+- Brian Chu: bbch223@uky.edu
+- Braxton Goble: brgo229@uky.edu
+- Clark Conrad: caco375@uky.edu
+- Leighanne Lyvers: lfly223@uky.edu
+'''
+
 pygame.init()
 screen = pygame.display.set_mode((c.SCREEN_WIDTH, c.SCREEN_HEIGHT))
 pygame.display.set_caption("Blackjack")
