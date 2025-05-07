@@ -100,15 +100,23 @@ class GUI:
         self.bet_decrease_button = Button(0, 0, c.HUD_BET_BUTTON_SIZE, c.HUD_BET_BUTTON_SIZE, "-", self.decrease_current_bet, font_size=c.HUD_BET_BUTTON_FONT_SIZE)
         self.bet_increase_button = Button(0, 0, c.HUD_BET_BUTTON_SIZE, c.HUD_BET_BUTTON_SIZE, "+", self.increase_current_bet, font_size=c.HUD_BET_BUTTON_FONT_SIZE)
         self.deal_button = Button(0, 0, c.HUD_DEAL_BUTTON_WIDTH, c.HUD_DEAL_BUTTON_HEIGHT, "Deal", self.place_bet_and_deal)
+
+        # Player action buttons (hit, stand, double, split)
+        self.hit_button = Button(0, 0, c.ACTION_BUTTON_WIDTH, c.ACTION_BUTTON_HEIGHT, "Hit", self.player_hit, font_size=c.ACTION_BUTTON_FONT_SIZE)
+        self.stand_button = Button(0, 0, c.ACTION_BUTTON_WIDTH, c.ACTION_BUTTON_HEIGHT, "Stand", self.player_stand, font_size=c.ACTION_BUTTON_FONT_SIZE)
+        self.double_down_button = Button(0, 0, c.ACTION_BUTTON_WIDTH, c.ACTION_BUTTON_HEIGHT, "Double", self.player_double_down, font_size=c.ACTION_BUTTON_FONT_SIZE)
+        self.split_button = Button(0, 0, c.ACTION_BUTTON_WIDTH, c.ACTION_BUTTON_HEIGHT, "Split", self.player_split, font_size=c.ACTION_BUTTON_FONT_SIZE)
         
         # Default is menu screen
         self.setup_menu_screen()
     
+    ##### Menu Screen Methods #####
     def setup_menu_screen(self):
         self.current_screen = 'menu'
         self.buttons.clear()
         self.buttons.extend([self.start_button, self.instruct_button, self.exit_button])
 
+    ##### Game Settings Methods #####
     def increase_players(self):
         if self.num_players < 6:
             self.num_players += 1
@@ -135,7 +143,7 @@ class GUI:
             self.num_chips -= 100
             print(f"Number of chips: {self.num_chips}")
         elif self.num_chips > 0:
-            self.starting_chips = max(0, self.num_chips - 10)
+            self.num_chips = max(0, self.num_chips - 10)
             print(f"Number of chips: {self.num_chips}")
 
     def show_game_settings(self):
@@ -174,11 +182,14 @@ class GUI:
                                 self.chips_minus_button, self.chips_plus_button,
                                 self.proceed_to_game_button])
 
+    ##### Game Screen Methods #####
     def prepare_game_screen(self):
         print("Preparing game screen!")
         self.current_screen = 'game_active'
         self.current_bet = c.MIN_BET
         # We set the chips from the settings in the game object, it will rollover to game screen
+        self.game.player.chips = self.num_chips
+        print(f"Player starting chips set to: {self.game.player.chips} (from GUI settings: {self.num_chips})")
 
         self.game.new_round()
         self.update_game_buttons()
@@ -209,6 +220,27 @@ class GUI:
         if not success:
             print(f"Failed to start round: {self.game.message}")
         
+        self.update_game_buttons()
+
+    ##### Player Action Methods #####
+    def player_hit(self):
+        print("Player hit!")
+        self.game.hit()
+        self.update_game_buttons()
+    
+    def player_stand(self):
+        print("Player stand!")
+        self.game.stand()
+        self.update_game_buttons()
+
+    def player_double_down(self):
+        print("Player double down!")
+        self.game.double_down()
+        self.update_game_buttons()
+
+    def player_split(self):
+        print("Player split!")
+        self.game.split()
         self.update_game_buttons()
 
     def update_game_buttons(self):
@@ -247,12 +279,33 @@ class GUI:
 
             self.buttons.extend([self.bet_decrease_button, self.bet_increase_button, self.deal_button])
         elif self.game.state == GameState.PLAYER_TURN:
-            # TODO: Add buttons for player actions (hit, stand, double, split)
-            pass
+            # Player action buttons (hit, stand, double, split)
+            action_buttons_to_display = [self.hit_button, self.stand_button]
+
+            # Log to determine if double down is available
+            # Because game logic already checks for double down, we can just check if the player has enough chips
+            if len(self.game.player.current_hand.cards) == 2:
+                action_buttons_to_display.append(self.double_down_button)
+                # check for split
+                p_hand = self.game.player.current_hand
+                if len(p_hand.cards) == 2 and p_hand.cards[0].rank == p_hand.cards[1].rank and self.game.player.chips >= self.game.player.current_bet:
+                    action_buttons_to_display.append(self.split_button)
+
+            num_actions_buttons = len(action_buttons_to_display)
+            # calculate the total width of the action buttons
+            total_action_buttons_width = num_actions_buttons * c.ACTION_BUTTON_WIDTH +(num_actions_buttons - 1) * c.ACTION_BUTTON_SPACING
+            current_x = (c.SCREEN_WIDTH - total_action_buttons_width) // 2
+
+            for btn in action_buttons_to_display:
+                btn.rect.left = current_x
+                btn.rect.centery = c.ACTION_BUTTON_Y
+                self.buttons.append(btn)
+                current_x += btn.rect.width + c.ACTION_BUTTON_SPACING
         elif self.game.state == GameState.DEALER_TURN:
             # TODO: ADD "new round" button or "continue" button
             pass
 
+    ##### Instructions and Exit Methods #####
     def show_instructions(self):
         print("Instructions button pressed!")
         self.current_screen = "instructions"
@@ -265,7 +318,7 @@ class GUI:
         pygame.quit()
         exit()
 
-    # This is where the magic happens
+    ##### This is where the magic happens #####
     # The render method is called every frame to update the display
     # It draws the current screen and all buttons
     def render(self):
@@ -352,7 +405,33 @@ class GUI:
                 bet_text_str = self.hud_font.render(bet_text_str, True, c.WHITE)
                 if hasattr(self, 'bet_text_render_rect'):
                     self.screen.blit(bet_text_str, self.bet_text_render_rect)
+                if self.game.message:
+                    message_surf = self.chip_font.render(self.game.message, True, c.WHITE)
+                    msg_y_pos = c.HUD_BET_CONTROLS_Y_CENTER - c.HUD_GAME_MESSAGE_Y_OFFSET
+                    message_rect = message_surf.get_rect(center=(c.SCREEN_WIDTH // 2, msg_y_pos))
+                    self.screen.blit(message_surf, message_rect)
+            else:
+                if self.game.message:
+                    message_surf = self.chip_font.render(self.game.message,True, c.WHITE)
+                    message_rect = message_surf.get_rect(center=(c.SCREEN_WIDTH // 2, 50))
+                    self.screen.blit(message_surf, message_rect)
+                # Display player and dealer hands
+                if self.game.dealer and self.game.dealer.hand.cards:
+                    dealer_hand_str = self.game.dealer.show_partial_hand() if self.game.state == GameState.PLAYER_TURN else str(self.game.dealer.hand)
+                    dealer_text_surf = self.hud_font.render(f"Dealer: {dealer_hand_str} (Value: {self.game.dealer.hand.value if self.game.state != GameState.PLAYER_TURN or not self.game.dealer.hand.cards[1].face_up == False else '?'})", True, c.WHITE)
+                    dealer_text_rect = dealer_text_surf.get_rect(center=(c.DEALER_HAND_TEXT_X, c.DEALER_HAND_TEXT_Y))
+                    self.screen.blit(dealer_text_surf, dealer_text_rect)
 
+                # Display Player's hand(s) (text placeholder)
+                if self.game.player and self.game.player.hands:
+                    for i, hand in enumerate(self.game.player.hands):
+                        player_hand_str = str(hand)
+                        player_text_surf = self.hud_font.render(f"Player Hand {i+1}: {player_hand_str} (Value: {hand.value})", True, c.WHITE)
+                        # Adjust Y for multiple hands if splitting occurs
+                        player_text_rect = player_text_surf.get_rect(center=(c.PLAYER_HAND_TEXT_X, c.PLAYER_HAND_TEXT_Y + i * 40))
+                        self.screen.blit(player_text_surf, player_text_rect)
+
+                
 
             if self.game.message:
                 message_surf = self.chip_font.render(self.game.message, True, c.WHITE)
@@ -365,6 +444,7 @@ class GUI:
 
         pygame.display.flip()
 
+    # Handles event mouse clicks and keyboard inputs
     def handle_event(self, event):
         mouse_pos = pygame.mouse.get_pos()
 

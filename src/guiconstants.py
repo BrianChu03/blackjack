@@ -68,7 +68,20 @@ HUD_DEAL_BUTTON_WIDTH = 120
 HUD_DEAL_BUTTON_HEIGHT = 50
 HUD_BET_ELEMENT_SPACING = 15
 
-# NEW: Bet Constraints
+# Bet Constraints
 MIN_BET = 10
 MAX_BET = 500
 BET_INCREMENT = 10
+
+# Player Action Buttons Constants
+ACTION_BUTTON_WIDTH = 150
+ACTION_BUTTON_HEIGHT = 60
+ACTION_BUTTON_FONT_SIZE = 28
+ACTION_BUTTON_Y = SCREEN_HEIGHT - 150 # Y position for the row of action buttons
+ACTION_BUTTON_SPACING = 20 # Horizontal spacing between action buttons
+
+# Text Display Positions for Hands/Scores
+PLAYER_HAND_TEXT_X = SCREEN_WIDTH // 2
+PLAYER_HAND_TEXT_Y = SCREEN_HEIGHT // 2
+DEALER_HAND_TEXT_X = SCREEN_WIDTH // 2
+DEALER_HAND_TEXT_Y = SCREEN_HEIGHT // 2 - 100
